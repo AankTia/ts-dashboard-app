@@ -22,7 +22,11 @@ function App() {
   }, []);
 
   const fetchWidgets = async () => {
-    const res = await axios.get('http://localhost:3001/api/widgets');
+    const res = await axios.get('http://localhost:3001/api/widgets', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`
+      }
+    });
     setWidgets(res.data);
   };
 
@@ -31,6 +35,11 @@ function App() {
     setName('');
     setValue(0);
     fetchWidgets();
+  };
+
+  const login = async () => {
+    const res = await axios.post('http://localhost:3001/api/login', { username, password });
+    localStorage.setItem('token', res.data.token);
   };
 
   return (

@@ -238,3 +238,149 @@ npm run dev
 ```
 
 ---
+
+Alright! Let’s add **User Login with JWT** to your TypeScript + SQLite web app. This will involve:
+
+1. Creating a `users` table
+2. User registration & login endpoints
+3. Password hashing with `bcrypt`
+4. JWT token generation with `jsonwebtoken`
+5. Middleware to protect routes
+
+---
+
+## 🔐 Step-by-Step: Add User Login with JWT
+
+---
+
+### 📦 Step 1: Install Auth Dependencies (Backend)
+
+Go to your `backend` folder and install:
+
+```bash
+npm install bcrypt jsonwebtoken
+npm install --save-dev @types/bcrypt @types/jsonwebtoken
+```
+
+---
+
+### 🗃️ Step 2: Update Database (Add Users Table)
+
+Update your DB setup in `backend/src/index.ts`:
+
+```ts
+await db.exec(`CREATE TABLE IF NOT EXISTS users (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  username TEXT UNIQUE,
+  password TEXT
+)`);
+```
+
+---
+
+### 🧂 Step 3: Register User Endpoint
+
+Add this to `index.ts`:
+
+```ts
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = 'your-secret-key'; // Use env var in prod
+
+app.post('/api/register', async (req, res) => {
+  const { username, password } = req.body;
+  const hash = await bcrypt.hash(password, 10);
+
+  try {
+    await db.run('INSERT INTO users (username, password) VALUES (?, ?)', [username, hash]);
+    res.json({ message: 'User registered' });
+  } catch (err) {
+    res.status(400).json({ error: 'Username already exists' });
+  }
+});
+```
+
+---
+
+### 🔐 Step 4: Login User + Issue JWT
+
+```ts
+app.post('/api/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  const user = await db.get('SELECT * FROM users WHERE username = ?', [username]);
+  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+
+  const match = await bcrypt.compare(password, user.password);
+  if (!match) return res.status(401).json({ error: 'Invalid credentials' });
+
+  const token = jwt.sign({ userId: user.id }, JWT_SECRET, { expiresIn: '1h' });
+  res.json({ token });
+});
+```
+
+---
+
+### 🛡️ Step 5: Auth Middleware
+
+```ts
+function authenticateToken(req: any, res: any, next: any) {
+  const authHeader = req.headers['authorization'];
+  const token = authHeader?.split(' ')[1];
+
+  if (!token) return res.status(401).json({ error: 'Missing token' });
+
+  jwt.verify(token, JWT_SECRET, (err: any, user: any) => {
+    if (err) return res.status(403).json({ error: 'Invalid token' });
+    req.user = user;
+    next();
+  });
+}
+```
+
+Use it to protect routes:
+
+```ts
+app.get('/api/widgets', authenticateToken, async (_req, res) => {
+  const widgets = await db.all('SELECT * FROM widgets');
+  res.json(widgets);
+});
+```
+
+---
+
+### 🌐 Step 6: Frontend Login Example (React)
+
+In your frontend, create a login form and store the JWT:
+
+```tsx
+const login = async () => {
+  const res = await axios.post('http://localhost:3001/api/login', { username, password });
+  localStorage.setItem('token', res.data.token);
+};
+```
+
+And use the token in requests:
+
+```tsx
+axios.get('http://localhost:3001/api/widgets', {
+  headers: {
+    Authorization: `Bearer ${localStorage.getItem('token')}`
+  }
+});
+```
+
+---
+
+### ✅ Done!
+
+Now you have:
+
+- ✅ User registration & login
+- ✅ Secure JWT-based authentication
+- ✅ Protected routes
+
+---
+
+Do you want help adding logout, persistent login, or a full auth flow with React context/hooks?
