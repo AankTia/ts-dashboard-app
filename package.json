@@ -1,0 +1,12 @@
+{
+  "name": "ts-dashboard-app",
+  "version": "1.0.0",
+  "description": "Here’s a **step-by-step tutorial** for building a **simple web app dashboard** using **TypeScript** and **SQLite**. We'll use:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [],
+  "author": "Tia Widi",
+  "license": "ISC"
+}
