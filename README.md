@@ -373,14 +373,244 @@ axios.get('http://localhost:3001/api/widgets', {
 
 ---
 
-### ✅ Done!
-
-Now you have:
-
-- ✅ User registration & login
-- ✅ Secure JWT-based authentication
-- ✅ Protected routes
+## 🧠 Step-by-Step: Full Auth Flow with React Context + Hooks
 
 ---
 
-Do you want help adding logout, persistent login, or a full auth flow with React context/hooks?
+### 📁 Step 1: File Structure
+
+In your frontend `src/`:
+
+```
+src/
+├── App.tsx
+├── components/
+│   └── ProtectedRoute.tsx
+├── context/
+│   └── AuthContext.tsx
+├── pages/
+│   ├── Dashboard.tsx
+│   └── Login.tsx
+```
+
+---
+
+### 🧠 Step 2: AuthContext Setup
+
+Create `src/context/AuthContext.tsx`:
+
+```tsx
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import axios from 'axios';
+
+interface AuthContextType {
+  user: string | null;
+  login: (username: string, password: string) => Promise<void>;
+  logout: () => void;
+}
+
+const AuthContext = createContext<AuthContextType | null>(null);
+
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<string | null>(null);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (token) {
+      // Optionally: decode token or validate with server
+      setUser('user'); // dummy for now
+    }
+  }, []);
+
+  const login = async (username: string, password: string) => {
+    const res = await axios.post('http://localhost:3001/api/login', { username, password });
+    localStorage.setItem('token', res.data.token);
+    setUser(username);
+  };
+
+  const logout = () => {
+    localStorage.removeItem('token');
+    setUser(null);
+  };
+
+  return (
+    <AuthContext.Provider value={{ user, login, logout }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
+export const useAuth = () => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) throw new Error('useAuth must be used within AuthProvider');
+  return ctx;
+};
+```
+
+---
+
+### 🧩 Step 3: AuthProvider in App.tsx
+
+Update `src/App.tsx`:
+
+```tsx
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './context/AuthContext';
+import Login from './pages/Login';
+import Dashboard from './pages/Dashboard';
+import ProtectedRoute from './components/ProtectedRoute';
+
+function App() {
+  return (
+    <AuthProvider>
+      <Router>
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route
+            path="/"
+            element={
+              <ProtectedRoute>
+                <Dashboard />
+              </ProtectedRoute>
+            }
+          />
+        </Routes>
+      </Router>
+    </AuthProvider>
+  );
+}
+
+export default App;
+```
+
+---
+
+### 🛡️ Step 4: ProtectedRoute Component
+
+Create `src/components/ProtectedRoute.tsx`:
+
+```tsx
+import React from 'react';
+import { Navigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { user } = useAuth();
+
+  if (!user) return <Navigate to="/login" />;
+
+  return <>{children}</>;
+};
+
+export default ProtectedRoute;
+```
+
+---
+
+### 🔐 Step 5: Login Page
+
+Create `src/pages/Login.tsx`:
+
+```tsx
+import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+
+const Login = () => {
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const { login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogin = async () => {
+    try {
+      await login(username, password);
+      navigate('/');
+    } catch (err) {
+      alert('Login failed');
+    }
+  };
+
+  return (
+    <div className="p-6 max-w-md mx-auto">
+      <h1 className="text-xl font-bold mb-4">Login</h1>
+      <input
+        className="border p-2 w-full mb-2"
+        placeholder="Username"
+        value={username}
+        onChange={(e) => setUsername(e.target.value)}
+      />
+      <input
+        type="password"
+        className="border p-2 w-full mb-2"
+        placeholder="Password"
+        value={password}
+        onChange={(e) => setPassword(e.target.value)}
+      />
+      <button onClick={handleLogin} className="bg-blue-600 text-white px-4 py-2 rounded">
+        Login
+      </button>
+    </div>
+  );
+};
+
+export default Login;
+```
+
+---
+
+### 📊 Step 6: Dashboard Page
+
+Update `src/pages/Dashboard.tsx`:
+
+```tsx
+import { useEffect, useState } from 'react';
+import { useAuth } from '../context/AuthContext';
+import axios from 'axios';
+
+interface Widget {
+  id: number;
+  name: string;
+  value: number;
+}
+
+const Dashboard = () => {
+  const { logout } = useAuth();
+  const [widgets, setWidgets] = useState<Widget[]>([]);
+
+  const fetchWidgets = async () => {
+    const res = await axios.get('http://localhost:3001/api/widgets', {
+      headers: {
+        Authorization: `Bearer ${localStorage.getItem('token')}`,
+      },
+    });
+    setWidgets(res.data);
+  };
+
+  useEffect(() => {
+    fetchWidgets();
+  }, []);
+
+  return (
+    <div className="p-6 max-w-xl mx-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-bold">Dashboard</h1>
+        <button onClick={logout} className="text-sm text-red-500 underline">
+          Logout
+        </button>
+      </div>
+      <ul className="space-y-2">
+        {widgets.map((w) => (
+          <li key={w.id} className="border p-2 rounded shadow">
+            {w.name}: {w.value}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+};
+
+export default Dashboard;
+```
+
+---
